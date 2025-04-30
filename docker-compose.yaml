@@ -1,0 +1,61 @@
+services:
+  # --------------------------------------
+  # Backend: Flask + Prometheus metrics
+  # --------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: backend:latest
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./project:/opt/airflow/project
+      - ./mlruns:/opt/airflow/mlruns     # your code & data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5001/health"]
+      interval: 30s
+      retries: 5
+    restart: always
+
+  # --------------------------------------
+  # Frontend: React
+  # --------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: frontend:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
+
+  # --------------------------------------
+  # Prometheus: scrape metrics from backend
+  # --------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - backend
+    restart: always
+
+  # --------------------------------------
+  # Grafana: visualize metrics
+  # --------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: always
+
